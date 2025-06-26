@@ -7,6 +7,7 @@ pub struct Repository {
     pub users: UserRepository,
     pub projects: ProjectRepository,
     pub tasks: TaskRepository,
+    pub auth: AuthRepository,
 }
 
 impl Repository {
@@ -15,6 +16,7 @@ impl Repository {
             users: UserRepository::new(pool.clone()),
             projects: ProjectRepository::new(pool.clone()),
             tasks: TaskRepository::new(pool),
+            auth: AuthRepository::new(pool, jwt_secret, jwt_expiry_hours),
         }
     }
 }
