@@ -1,7 +1,9 @@
-use crate::{models::{Task, TaskHistory}, schema::{tasks, task_history}};
+use crate::models::{Task, TaskHistory};
+use crate::schema::{tasks, task_history};
 use diesel::prelude::*;
 use super::DbPool;
 
+#[derive(Clone)]
 pub struct TaskRepository {
     pool: DbPool,
 }

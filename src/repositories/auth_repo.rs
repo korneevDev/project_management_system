@@ -1,8 +1,10 @@
-use crate::{models::UserSession, schema::user_sessions};
 use chrono::{Duration, Utc};
 use diesel::prelude::*;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+
+use crate::models::UserSession;
+use crate::schema::user_sessions;
 use super::DbPool;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -12,6 +14,7 @@ pub struct JwtClaims {
     pub role: String,   // user role
 }
 
+#[derive(Clone)]
 pub struct AuthRepository {
     pool: DbPool,
     jwt_secret: String,
@@ -78,7 +81,7 @@ impl AuthRepository {
     }
 
     /// Поиск активной сессии
-    pub fn find_session(&self, token: &str) -> Option<UserSession> {
+    pub fn find_session(&self, _token: &str) -> Option<UserSession> {
         use crate::schema::user_sessions::dsl::*;
         let mut conn = self.pool.get().unwrap();
 

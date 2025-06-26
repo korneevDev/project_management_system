@@ -1,7 +1,9 @@
-use crate::{models::Project, schema::projects};
+use crate::models::{Project};
+use crate::schema::{projects};
 use diesel::prelude::*;
 use super::DbPool;
 
+#[derive(Clone)]
 pub struct ProjectRepository {
     pool: DbPool,
 }
@@ -39,8 +41,8 @@ impl ProjectRepository {
         let mut conn = self.pool.get().unwrap();
         let mut query = projects.into_boxed();
 
-        if let Some(status) = status_filter {
-            query = query.filter(status.eq(status));
+        if let Some(status_value) = status_filter {
+            query = query.filter(status.eq(status_value));
         }
 
         query.load(&mut conn).unwrap()

@@ -1,70 +1,39 @@
-mod models;
-mod schema;
-mod repositories;
-
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use repositories::{ProjectRepository, TaskRepository, UserRepository};
-use diesel::{r2d2::ConnectionManager, PgConnection};
+use actix_web::{web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;
-use std::env;
+use diesel::r2d2::{self, ConnectionManager};
+use diesel::PgConnection;
 
-pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+mod models;
+mod repositories;
+mod schema;
 
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body("Project Management System")
-}
-
-async fn get_projects(
-    pool: web::Data<DbPool>,
-    project_repo: web::Data<ProjectRepository>,
-) -> impl Responder {
-    match project_repo.all() {
-        Ok(projects) => HttpResponse::Ok().json(projects),
-        Err(_) => HttpResponse::InternalServerError().body("Error getting projects"),
-    }
-}
-
-async fn create_project(
-    pool: web::Data<DbPool>,
-    project_repo: web::Data<ProjectRepository>,
-    new_project: web::Json<NewProject>,
-) -> impl Responder {
-    match project_repo.create(new_project.into_inner()) {
-        Ok(project) => HttpResponse::Created().json(project),
-        Err(_) => HttpResponse::InternalServerError().body("Error creating project"),
-    }
-}
+use crate::repositories::Repository;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     
-    let database_url = env::var("DATABASE_URL")
+    let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
-        .expect("Failed to create DB pool");
-    
-    let project_repo = web::Data::new(ProjectRepository::new(pool.clone()));
-    let task_repo = web::Data::new(TaskRepository::new(pool.clone()));
-    let user_repo = web::Data::new(UserRepository::new(pool.clone()));
+        .expect("Failed to create pool");
+
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .expect("JWT_SECRET must be set");
+    let jwt_expiry_hours = std::env::var("JWT_EXPIRY_HOURS")
+        .unwrap_or("24".to_string())
+        .parse()
+        .expect("JWT_EXPIRY_HOURS must be a number");
+
+    let repo = Repository::new(pool.clone(), jwt_secret, jwt_expiry_hours);
 
     HttpServer::new(move || {
         App::new()
-            .app_data(pool.clone())
-            .app_data(project_repo.clone())
-            .app_data(task_repo.clone())
-            .app_data(user_repo.clone())
-            .route("/", web::get().to(index))
-            .service(
-                web::scope("/api")
-                    .service(
-                        web::resource("/projects")
-                            .route(web::get().to(get_projects))
-                            .route(web::post().to(create_project)),
-                    )
-            )
+            .app_data(web::Data::new(repo.clone()))
+            // Здесь добавьте ваши маршруты
+            .route("/", web::get().to(|| async { HttpResponse::Ok().body("Hello world!") }))
     })
     .bind("127.0.0.1:8080")?
     .run()
