@@ -18,3 +18,4 @@ pub fn establish_test_connection() -> PgConnection {
 pub mod models;
 pub mod repositories;
 pub mod schema;
+pub mod auth; 

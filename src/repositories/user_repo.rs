@@ -26,6 +26,15 @@ impl UserRepository {
             .get_result(&mut conn)
     }
 
+        pub fn find_by_id(&self, user_id: i32) -> Option<User> {
+        use crate::schema::users::dsl::*;
+        let mut conn = self.pool.get().unwrap();
+        users.filter(id.eq(user_id))
+            .first(&mut conn)
+            .optional()
+            .unwrap()
+    }
+
     pub fn find_by_email(&self, user_email: &str) -> Option<User> {
         use crate::schema::users::dsl::{users, email};
         

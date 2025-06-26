@@ -53,7 +53,7 @@ table! {
     user_sessions (id) {
         id -> Integer,
         user_id -> Integer,
-        token -> Varchar,
+        token -> Text,
         expires_at -> Timestamp,
         created_at -> Timestamp,
     }

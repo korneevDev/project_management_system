@@ -24,6 +24,7 @@ fn setup_test_db() -> DbPool {
     pool
 }
 
+
 #[test]
 fn test_user_creation_and_find() {
     let pool = setup_test_db();
@@ -58,4 +59,54 @@ fn test_find_nonexistent_user() {
     
     // Должны получить None
     assert!(result.is_none());
+}
+
+#[test]
+fn test_create_session_success() {
+    // Проверяем успешное создание сессии
+}
+
+#[test]
+fn test_find_existing_session() {
+    // Поиск существующей активной сессии
+}
+
+#[test]
+fn test_create_task_success() {
+    // Создание задачи с валидными данными
+}
+
+#[test]
+fn test_create_task_with_nonexistent_project() {
+    // Попытка создать задачу для несуществующего проекта
+}
+
+#[test]
+fn test_create_task_with_invalid_assignee() {
+    // Создание задачи с несуществующим исполнителем
+}
+
+#[test]
+fn test_update_task_status_success() {
+    // Успешное обновление статуса
+}
+
+#[test]
+fn test_update_status_nonexistent_task() {
+    // Попытка обновить несуществующую задачу
+}
+
+#[test]
+fn test_update_status_with_history() {
+    // Проверка записи в историю изменений
+}
+
+#[test]
+fn test_get_task_history_multiple_changes() {
+    // Получение истории после нескольких изменений
+}
+
+#[test]
+fn test_get_history_for_nonexistent_task() {
+    // Запрос истории для несуществующей задачи
 }

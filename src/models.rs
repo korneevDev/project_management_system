@@ -70,11 +70,20 @@ pub struct TaskHistory {
     pub changed_at: NaiveDateTime,
 }
 
-#[derive(Queryable, Serialize)]
+#[derive(Queryable, Identifiable, Serialize)]
+#[diesel(table_name = crate::schema::user_sessions)]
 pub struct UserSession {
     pub id: i32,
     pub user_id: i32,
     pub token: String,
     pub expires_at: NaiveDateTime,
     pub created_at: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::user_sessions)]
+pub struct NewUserSession {
+    pub user_id: i32,
+    pub token: String,
+    pub expires_at: NaiveDateTime,
 }

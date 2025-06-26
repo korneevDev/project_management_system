@@ -1,105 +1,68 @@
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use diesel::prelude::*;
-use jsonwebtoken::{EncodingKey, Header};
-use serde::{Deserialize, Serialize};
-
-use crate::models::UserSession;
-use crate::schema::user_sessions;
 use super::DbPool;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JwtClaims {
-    pub sub: i32,       // user_id
-    pub exp: usize,     // expiry timestamp
-    pub role: String,   // user role
-}
-
+use crate::models::UserSession; // Добавляем импорт UserSession
+use crate::models::NewUserSession;
 #[derive(Clone)]
 pub struct AuthRepository {
-    pool: DbPool,
-    jwt_secret: String,
-    jwt_expiry_hours: i64,
+    pub pool: DbPool,
+    pub jwt_secret: String,
+    pub jwt_expiry_hours: i64,
 }
 
 impl AuthRepository {
     pub fn new(pool: DbPool, jwt_secret: String, jwt_expiry_hours: i64) -> Self {
-        Self {
-            pool,
-            jwt_secret,
-            jwt_expiry_hours,
-        }
+        Self { pool, jwt_secret, jwt_expiry_hours }
     }
 
-    /// Генерация нового JWT токена
-    pub fn generate_token(&self, user_id: i32, role: &str) -> String {
-        let expiration = Utc::now()
-            .checked_add_signed(Duration::hours(self.jwt_expiry_hours))
-            .expect("Invalid timestamp")
-            .timestamp() as usize;
+    pub fn create_session(&self, user_id: i32, token: &str) -> Result<(), diesel::result::Error> {
+        use crate::schema::user_sessions::dsl;
 
-        let claims = JwtClaims {
-            sub: user_id,
-            exp: expiration,
-            role: role.to_string(),
+        let new_session = NewUserSession {
+            user_id,
+            token: token.to_string(),
+            expires_at: Utc::now().naive_utc() + chrono::Duration::hours(self.jwt_expiry_hours),
         };
 
-        jsonwebtoken::encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(self.jwt_secret.as_ref()),
-        )
-        .unwrap()
+        diesel::insert_into(dsl::user_sessions)
+            .values(&new_session)
+            .execute(&mut self.pool.get().unwrap())?;
+
+        Ok(())
     }
 
-    /// Сохранение сессии в БД
-    pub fn create_session(&self, user_id: i32, token: &str) -> Result<UserSession, diesel::result::Error> {
-        let expires_at = Utc::now()
-            .checked_add_signed(Duration::hours(self.jwt_expiry_hours))
-            .unwrap();
-
-        let mut conn = self.pool.get().unwrap();
-        diesel::insert_into(user_sessions::table)
-            .values((
-                user_sessions::user_id.eq(user_id),
-                user_sessions::token.eq(token),
-                user_sessions::expires_at.eq(expires_at.naive_utc()),
-            ))
-            .get_result(&mut conn)
-    }
-
-    /// Проверка валидности токена
-    pub fn validate_token(&self, token: &str) -> Option<JwtClaims> {
-        use jsonwebtoken::{decode, DecodingKey, Validation};
-
-        decode::<JwtClaims>(
-            token,
-            &DecodingKey::from_secret(self.jwt_secret.as_ref()),
-            &Validation::default(),
-        )
-        .map(|data| data.claims)
-        .ok()
-    }
-
-    /// Поиск активной сессии
-    pub fn find_session(&self, _token: &str) -> Option<UserSession> {
+    pub fn find_session(&self, session_token: &str) -> Option<UserSession> {
         use crate::schema::user_sessions::dsl::*;
-        let mut conn = self.pool.get().unwrap();
 
         user_sessions
-            .filter(token.eq(token))
-            .filter(expires_at.gt(Utc::now().naive_utc()))
-            .first(&mut conn)
+            .filter(token.eq(session_token))
+            .first::<UserSession>(&mut self.pool.get().unwrap())
             .optional()
             .unwrap()
     }
 
-    /// Удаление всех просроченных сессий
-    pub fn cleanup_expired_sessions(&self) -> usize {
+    pub fn update_session(&self, session_id: i32, new_token: &str) -> Result<(), diesel::result::Error> {
         use crate::schema::user_sessions::dsl::*;
-        let mut conn = self.pool.get().unwrap();
 
-        diesel::delete(user_sessions.filter(expires_at.lt(Utc::now().naive_utc())))
-            .execute(&mut conn)
-            .unwrap()
+        let new_expires_at = Utc::now() + chrono::Duration::hours(self.jwt_expiry_hours);
+        let expires_at_value = new_expires_at.naive_utc();
+
+        diesel::update(user_sessions.find(session_id))
+            .set((
+                token.eq(new_token),
+                expires_at.eq(expires_at_value),
+            ))
+            .execute(&mut self.pool.get().unwrap())?;
+
+        Ok(())
+    }
+
+    pub fn delete_session_by_token(&self, session_token: &str) -> Result<(), diesel::result::Error> {
+        use crate::schema::user_sessions::dsl::*;
+
+        diesel::delete(user_sessions.filter(token.eq(session_token)))
+            .execute(&mut self.pool.get().unwrap())?;
+
+        Ok(())
     }
 }
